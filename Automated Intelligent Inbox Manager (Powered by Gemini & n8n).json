@@ -1,0 +1,477 @@
+{
+  "name": "Automated Intelligent Inbox Manager (Powered by Gemini & n8n)",
+  "nodes": [
+    {
+      "parameters": {
+        "sendTo": "={{ $node[\"Gmail Trigger\"].json[\"From\"] }}",
+        "subject": "={{ $json.response_subject }}",
+        "emailType": "text",
+        "message": "={{ $json.response_body }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2016,
+        -176
+      ],
+      "id": "4f1de65d-6d2a-4607-a09a-5bd8ea727cde",
+      "name": "Send a message1",
+      "webhookId": "3e3cfdaf-f63d-49e4-8e49-037fcc9f2b73",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "3aSVtr9gwvJeGc7H",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an intelligent email assistant.\n\nYour job is to read incoming emails, understand the intent, and generate clear, professional, and concise responses.\n\nGOALS:\n- Understand what the sender wants.\n- Extract key details (dates, requests, pricing, problems, urgency).\n- Respond clearly and professionally.\n- If information is missing, ask specific follow-up questions.\n- Keep responses structured and easy to read.\n\nTONE:\n- Professional but friendly.\n- Confident and helpful.\n- Clear and concise.\n- No unnecessary fluff.\n- No emojis unless the sender uses them first.\n\nRULES:\n1. If the email is a question → Answer clearly.\n2. If it is a request → Confirm next steps.\n3. If it is a complaint → Apologize briefly and offer a solution.\n4. If it is unclear → Ask clarifying questions.\n5. If it is spam or irrelevant → Mark as low priority and suggest no reply.\n\nFORMAT YOUR OUTPUT EXACTLY LIKE THIS:\n\nSUBJECT: [Reply subject line]\n\nEMAIL BODY:\n[Write the full email response here]\n\nACTION:\n[Reply / Ask for clarification / No response needed]\n\nFrom: {{$json[\"From\"]}}\nSubject: {{$json[\"Subject\"]}}\nBody: {{$json[\"Body\"]}}\n\nPlease generate a professional reply following these rules:\n- Keep it clear and concise.\n- Friendly but professional.\n- Ask clarification if needed.\n- Output in format:\n\nSUBJECT: [Reply subject]\nEMAIL BODY: [Reply body]\nACTION: [Reply / Ask for clarification / No response needed]\n\nUse the name **Squishy** as the sender in all replies.",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1440,
+        -176
+      ],
+      "id": "2b11329f-467e-4f21-a391-13c2d3e427d5",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1520,
+        48
+      ],
+      "id": "da63b083-5a38-48e0-b1ab-b89672f85f0f",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "7oPLTahEMXJsBxin",
+          "name": "Google Gemini(PaLM) Api account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "messageId": "={{$json[\"id\"]}}"
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        768,
+        -176
+      ],
+      "id": "107d113b-188f-42f9-824b-84c9ae60e7a2",
+      "name": "Get a message",
+      "webhookId": "9c4cce99-64ca-45ce-880f-288e28f12186",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "3aSVtr9gwvJeGc7H",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Take the AI Agent output\nconst text = $json[\"output\"]; // use the actual field name\n\n// Extract SUBJECT\nconst subjectMatch = text.match(/SUBJECT:\\s*(.*)/);\n\n// Extract EMAIL BODY\nconst bodyMatch = text.match(/EMAIL BODY:\\s*([\\s\\S]*?)\\nACTION:/);\n\n// Extract ACTION\nconst actionMatch = text.match(/ACTION:\\s*(.*)/);\n\nreturn [{\n  json: {\n    response_subject: subjectMatch ? subjectMatch[1].trim() : \"\",\n    response_body: bodyMatch ? bodyMatch[1].trim() : \"\",\n    response_action: actionMatch ? actionMatch[1].trim() : \"\"\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1792,
+        -176
+      ],
+      "id": "f5952363-834a-4953-b392-1be90f5ff4d1",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Initialize body\nlet bodyData = '';\n\n// Check for multipart text/plain\nif ($json.payload && $json.payload.parts && $json.payload.parts.length > 0) {\n    const textPart = $json.payload.parts.find(p => p.mimeType === 'text/plain');\n    if (textPart && textPart.body && textPart.body.data) {\n        bodyData = Buffer.from(textPart.body.data, 'base64').toString('utf-8');\n    }\n}\n\n// Check for single body\nelse if ($json.payload && $json.payload.body && $json.payload.body.data) {\n    bodyData = Buffer.from($json.payload.body.data, 'base64').toString('utf-8');\n}\n\n// Fallback: use snippet if nothing else\nif (!bodyData && $json.snippet) {\n    bodyData = $json.snippet;\n}\n\n// Return clean JSON\nreturn [\n  {\n    json: {\n      From: $json.From,\n      Subject: $json.Subject,\n      Body: bodyData\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        992,
+        -176
+      ],
+      "id": "6cbcfe8f-4d22-4452-9db4-0b37439fabc9",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d820fe5e-8413-4551-b820-7f7a354c8c5e",
+              "name": "From",
+              "value": "={{ $json.From }}",
+              "type": "string"
+            },
+            {
+              "id": "a84f5668-3271-41c2-856f-28c5ab1165ce",
+              "name": "Subject",
+              "value": "={{ $json.Subject }}",
+              "type": "string"
+            },
+            {
+              "id": "73efcd32-04d2-42d1-90bd-67da86d662dd",
+              "name": "Body",
+              "value": "={{ $json.Body }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1216,
+        -176
+      ],
+      "id": "c325046a-f7a0-4210-b367-31421f955ee2",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyX",
+              "value": 0.75
+            }
+          ]
+        },
+        "filters": {
+          "labelIds": [
+            "INBOX"
+          ],
+          "q": "is:unread"
+        }
+      },
+      "id": "812dfaf8-584b-4e1a-ad7f-c48e838197ad",
+      "name": "Gmail Trigger",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1,
+      "position": [
+        -352,
+        -80
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "3aSVtr9gwvJeGc7H",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $node[\"Gmail Trigger\"].json.id }}",
+        "labelIds": [
+          "STARRED"
+        ]
+      },
+      "id": "a25c4472-dd97-47eb-ab0d-6ae2a0179f4b",
+      "name": "Star Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        544,
+        -176
+      ],
+      "webhookId": "42695f2c-e6a6-419c-bce2-a094a6e9217e",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "3aSVtr9gwvJeGc7H",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const importantSenders = [\n\n];\n\nconst senderList = importantSenders.map(s => s.toLowerCase());\n\nreturn [{\njson: {\nsenderList: senderList,\ncount: senderList.length\n}\n}];\n    "
+      },
+      "id": "4b731177-4f70-480a-acc8-1e9a5dd8530d",
+      "name": "Important Senders Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -128,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Specifically pull the \"From\" field from the Gmail Trigger node\nconst gmailData = $node[\"Gmail Trigger\"].json;\nconst sender = gmailData.From || gmailData.from;\n\nif (!sender) {\nreturn {\njson: {\nisImportant: false,\nstatus: \"Error: Could not find email data from the Gmail Trigger.\"\n}\n};\n}\n\n// 2. Get your VIP list from the Config node\nconst configData = $node[\"Important Senders Config\"].json;\nconst senderList = configData.senderList || [];\n\n// 3. Compare them\nconst fromEmail = sender.toLowerCase();\nconst isImportant = senderList.some(s => fromEmail.includes(s.toLowerCase()));\n\nreturn {\njson: {\n...gmailData,\nisImportant: isImportant,\nmatchedSender: isImportant ? fromEmail : null\n}\n};"
+      },
+      "id": "dea087f0-5f06-4a7a-9d5e-261169350413",
+      "name": "Check Sender Match",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        96,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.isImportant }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "421144f9-ee7c-4767-938c-dbe1db56fb76",
+      "name": "Is Important?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        320,
+        -80
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "721b6e7c-e8e4-4819-abc1-b8ffd6cbe158",
+      "name": "No Operation (Not Important)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        544,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "thread",
+        "operation": "removeLabels",
+        "threadId": "={{ $node[\"Gmail Trigger\"].json.threadId }}",
+        "labelIds": [
+          "UNREAD",
+          "INBOX"
+        ]
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2240,
+        -176
+      ],
+      "id": "9ac2bc27-c2d3-49ff-a01b-aacb5073f012",
+      "name": "Remove label from thread1",
+      "webhookId": "b0caadc8-5c32-44ea-8ad3-975bd2bd40df",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "3aSVtr9gwvJeGc7H",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "markAsRead",
+        "messageId": "={{ $node[\"Gmail Trigger\"].json.threadId }}"
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        768,
+        16
+      ],
+      "id": "fd54031b-fa90-4f24-95f3-18a1c1f00e91",
+      "name": "Mark a message as read",
+      "webhookId": "8f1b0375-d9e4-4e82-9a86-a676b1959493",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "3aSVtr9gwvJeGc7H",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get a message": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Send a message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message1": {
+      "main": [
+        [
+          {
+            "node": "Remove label from thread1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "Important Senders Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Star Email": {
+      "main": [
+        [
+          {
+            "node": "Get a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Important Senders Config": {
+      "main": [
+        [
+          {
+            "node": "Check Sender Match",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Sender Match": {
+      "main": [
+        [
+          {
+            "node": "Is Important?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Important?": {
+      "main": [
+        [
+          {
+            "node": "Star Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Operation (Not Important)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "No Operation (Not Important)": {
+      "main": [
+        [
+          {
+            "node": "Mark a message as read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "dECrh7L9JKLTNNLK",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "00933d78-918f-41fc-8584-42015a9928cf",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "b0344bb0e41b41cd8040e13ef2a92eadf40e6e8ed204db75a1cc0c42468e25d4"
+  },
+  "id": "naqIEdyTDWOdQd7M",
+  "tags": []
+}
