@@ -136,4 +136,4 @@ business workflow automation
 
 AI productivity systems
 
-You can copy the workflow and modify it for your own automation. :)
+Feel free to copy the workflow and adapt it for your own automation projects.
