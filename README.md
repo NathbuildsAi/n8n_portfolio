@@ -2,14 +2,18 @@
 
 An AI-powered Gmail automation workflow built with n8n that reads incoming emails, detects important senders, and automatically generates professional replies using Google Gemini AI.
 
-This project shows how to build a simple AI email assistant for personal or business automation.
+This project demonstrates how to build a simple AI email assistant for personal or business automation.
 
 🚀 Features
 
 ✅ Monitor Gmail for new emails
+
 ⭐ Detect important senders (VIP list)
-🤖 Generate replies using AI (Google Gemini)
+
+🤖 Generate replies using Google Gemini AI
+
 📤 Automatically send email responses
+
 📬 Organize inbox by marking or archiving threads
 
 ⚙️ How It Works
@@ -18,19 +22,19 @@ Gmail Trigger watches your inbox for unread emails.
 
 The workflow checks if the sender is in your VIP sender list.
 
-If the sender is important:
+If the sender is important
 
-The email is starred
+⭐ The email is starred
 
-The message content is extracted
+📥 The message content is extracted
 
-AI generates a professional reply
+🤖 AI generates a professional reply
 
-The reply is automatically sent
+📤 The reply is automatically sent
 
-If the sender is not important:
+If the sender is not important
 
-The email is marked as read.
+The email is marked as read
 
 🧠 AI Response Format
 
@@ -44,7 +48,7 @@ Full reply message
 ACTION:
 Reply / Ask for clarification / No response needed
 
-This output is parsed and sent as the final Gmail response.
+The workflow parses this output and sends the response through Gmail.
 
 🛠 Requirements
 
@@ -69,7 +73,7 @@ Create Gmail OAuth credentials and connect them inside n8n.
 
 3️⃣ Add Gemini API
 
-Create an API key from:
+Create an API key:
 
 https://aistudio.google.com/app/apikey
 
@@ -84,7 +88,7 @@ const importantSenders = [
   "client@example.com"
 ];
 
-Replace with your real emails.
+Replace with your real email addresses.
 
 📂 Import the Workflow
 
@@ -124,7 +128,7 @@ MIT License
 
 💡 Inspiration
 
-This project is designed as a foundation for AI automation agencies building:
+This project can serve as a foundation for building:
 
 AI email assistants
 
@@ -132,9 +136,4 @@ business workflow automation
 
 AI productivity systems
 
-
-
-
-
-
-You can also copy and paste the workflow to try it. :)
+You can copy the workflow and modify it for your own automation. :)
