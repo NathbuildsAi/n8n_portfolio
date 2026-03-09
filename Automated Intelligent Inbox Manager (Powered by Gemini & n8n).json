@@ -1,5 +1,4 @@
 {
-  "name": "Automated Intelligent Inbox Manager (Powered by Gemini & n8n)",
   "nodes": [
     {
       "parameters": {
@@ -202,7 +201,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const importantSenders = [\n\n];\n\nconst senderList = importantSenders.map(s => s.toLowerCase());\n\nreturn [{\njson: {\nsenderList: senderList,\ncount: senderList.length\n}\n}];\n    "
+        "jsCode": "// --------------------------------------------------\n// Important Senders Configuration\n// --------------------------------------------------\n// Add email addresses that should trigger the AI\n// auto-reply workflow.\n//\n// Replace these example emails with real ones\n// when using the workflow yourself.\n// --------------------------------------------------\n\nconst importantSenders = [\n  \"vip@example.com\",\n  \"client@example.com\",\n  \"boss@example.org\"\n];\n\n// Normalize emails (lowercase + remove spaces)\nconst senderList = importantSenders\n  .map(email => email.trim().toLowerCase())\n  .filter(email => email !== \"\");\n\n// Output configuration\nreturn [\n  {\n    json: {\n      senderList: senderList,\n      count: senderList.length,\n      description: \"List of important senders used by the workflow\"\n    }\n  }\n];"
       },
       "id": "4b731177-4f70-480a-acc8-1e9a5dd8530d",
       "name": "Important Senders Config",
@@ -305,14 +304,13 @@
       }
     }
   ],
-  "pinData": {},
   "connections": {
-    "Google Gemini Chat Model": {
-      "ai_languageModel": [
+    "Send a message1": {
+      "main": [
         [
           {
-            "node": "AI Agent",
-            "type": "ai_languageModel",
+            "node": "Remove label from thread1",
+            "type": "main",
             "index": 0
           }
         ]
@@ -324,6 +322,17 @@
           {
             "node": "Code in JavaScript",
             "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
             "index": 0
           }
         ]
@@ -367,17 +376,6 @@
         [
           {
             "node": "AI Agent",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Send a message1": {
-      "main": [
-        [
-          {
-            "node": "Remove label from thread1",
             "type": "main",
             "index": 0
           }
@@ -458,20 +456,9 @@
       ]
     }
   },
-  "active": false,
-  "settings": {
-    "executionOrder": "v1",
-    "binaryMode": "separate",
-    "availableInMCP": false,
-    "timeSavedMode": "fixed",
-    "errorWorkflow": "dECrh7L9JKLTNNLK",
-    "callerPolicy": "workflowsFromSameOwner"
-  },
-  "versionId": "00933d78-918f-41fc-8584-42015a9928cf",
+  "pinData": {},
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "b0344bb0e41b41cd8040e13ef2a92eadf40e6e8ed204db75a1cc0c42468e25d4"
-  },
-  "id": "naqIEdyTDWOdQd7M",
-  "tags": []
+  }
 }
