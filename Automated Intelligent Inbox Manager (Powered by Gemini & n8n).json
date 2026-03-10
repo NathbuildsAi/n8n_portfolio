@@ -18,13 +18,7 @@
       ],
       "id": "4f1de65d-6d2a-4607-a09a-5bd8ea727cde",
       "name": "Send a message1",
-      "webhookId": "3e3cfdaf-f63d-49e4-8e49-037fcc9f2b73",
-      "credentials": {
-        "gmailOAuth2": {
-          "id": "3aSVtr9gwvJeGc7H",
-          "name": "Gmail account"
-        }
-      }
+      "webhookId": "3e3cfdaf-f63d-49e4-8e49-037fcc9f2b73"
     },
     {
       "parameters": {
@@ -53,13 +47,7 @@
         48
       ],
       "id": "da63b083-5a38-48e0-b1ab-b89672f85f0f",
-      "name": "Google Gemini Chat Model",
-      "credentials": {
-        "googlePalmApi": {
-          "id": "7oPLTahEMXJsBxin",
-          "name": "Google Gemini(PaLM) Api account 2"
-        }
-      }
+      "name": "Google Gemini Chat Model"
     },
     {
       "parameters": {
@@ -74,13 +62,7 @@
       ],
       "id": "107d113b-188f-42f9-824b-84c9ae60e7a2",
       "name": "Get a message",
-      "webhookId": "9c4cce99-64ca-45ce-880f-288e28f12186",
-      "credentials": {
-        "gmailOAuth2": {
-          "id": "3aSVtr9gwvJeGc7H",
-          "name": "Gmail account"
-        }
-      }
+      "webhookId": "9c4cce99-64ca-45ce-880f-288e28f12186"
     },
     {
       "parameters": {
@@ -167,13 +149,7 @@
       "position": [
         -352,
         -80
-      ],
-      "credentials": {
-        "gmailOAuth2": {
-          "id": "3aSVtr9gwvJeGc7H",
-          "name": "Gmail account"
-        }
-      }
+      ]
     },
     {
       "parameters": {
@@ -191,13 +167,7 @@
         544,
         -176
       ],
-      "webhookId": "42695f2c-e6a6-419c-bce2-a094a6e9217e",
-      "credentials": {
-        "gmailOAuth2": {
-          "id": "3aSVtr9gwvJeGc7H",
-          "name": "Gmail account"
-        }
-      }
+      "webhookId": "42695f2c-e6a6-419c-bce2-a094a6e9217e"
     },
     {
       "parameters": {
@@ -274,13 +244,7 @@
       ],
       "id": "9ac2bc27-c2d3-49ff-a01b-aacb5073f012",
       "name": "Remove label from thread1",
-      "webhookId": "b0caadc8-5c32-44ea-8ad3-975bd2bd40df",
-      "credentials": {
-        "gmailOAuth2": {
-          "id": "3aSVtr9gwvJeGc7H",
-          "name": "Gmail account"
-        }
-      }
+      "webhookId": "b0caadc8-5c32-44ea-8ad3-975bd2bd40df"
     },
     {
       "parameters": {
@@ -295,13 +259,7 @@
       ],
       "id": "fd54031b-fa90-4f24-95f3-18a1c1f00e91",
       "name": "Mark a message as read",
-      "webhookId": "8f1b0375-d9e4-4e82-9a86-a676b1959493",
-      "credentials": {
-        "gmailOAuth2": {
-          "id": "3aSVtr9gwvJeGc7H",
-          "name": "Gmail account"
-        }
-      }
+      "webhookId": "8f1b0375-d9e4-4e82-9a86-a676b1959493"
     }
   ],
   "connections": {
