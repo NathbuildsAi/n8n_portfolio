@@ -1,0 +1,140 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "filters": {
+          "readStatus": "unread"
+        }
+      },
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.3,
+      "position": [-384, 640],
+      "id": "321458dd-eda7-43ea-be7c-6a3c847d7df5",
+      "name": "Gmail Trigger"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an AI assistant that categorizes Gmail emails for automatic labeling.\n\nAnalyze the email using:\n\n* Sender\n* Subject\n* Email body\n\nReturn the correct Gmail label(s).\n\n---\n\n## AVAILABLE GMAIL LABELS\n\nPersonal\nCATEGORY_SOCIAL\nCATEGORY_PROMOTIONS\nCATEGORY_UPDATES\nCATEGORY_FORUMS\nSPAM\nURGENT\nURGENT_AI_AGENCY\n\n---\n\n## LABEL RULES\n\nPersonal\nEmails from real people such as friends, family, or direct personal communication.\n\nCATEGORY_SOCIAL\nNotifications from social platforms such as LinkedIn, X/Twitter, Instagram, Facebook, Discord, or Reddit.\n\nCATEGORY_PROMOTIONS\nMarketing emails, discounts, product promotions, sales campaigns, newsletters, or advertising.\n\nCATEGORY_UPDATES\nReceipts, confirmations, invoices, billing notifications, shipping updates, account alerts, or service notifications.\n\nCATEGORY_FORUMS\nCommunity discussions, mailing lists, GitHub notifications, or group conversations.\n\nSPAM\nSuspicious emails, scams, phishing attempts, or irrelevant advertising.\n\nURGENT\nEmails requiring immediate attention or time-sensitive matters.\n\nURGENT_AI_AGENCY\nUrgent emails related to AI automation clients, agency work, business leads, or project communication.\n\n---\n\n## OUTPUT FORMAT\n\nReturn ONLY valid JSON.\n\nExample:\n\n{\n\"labels\": [\"CATEGORY_UPDATES\"]\n}\n\nor\n\n{\n\"labels\": [\"Personal\", \"URGENT\"]\n}\n\nRules:\n\n* Return ONLY JSON\n* Do NOT include explanations\n* Do NOT use markdown\n* Do NOT wrap the JSON in code blocks\n\n---\n\n## EMAIL\n\nSubject: {{ $json.Subject }}\n\nFrom: {{ $json.From }}\n\nBody:\n{{ $json.messages[0].payload.body.data }}\n"
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [64, 640],
+      "id": "1627a963-63b9-4e94-9ea1-4acce1b28bb9",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [144, 864],
+      "id": "5575f65d-e325-49c2-883b-8ae12b496d4f",
+      "name": "Google Gemini Chat Model"
+    },
+    {
+      "parameters": {
+        "resource": "thread",
+        "operation": "get",
+        "threadId": "={{ $node[\"Gmail Trigger\"].json[\"threadId\"] }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [-160, 640],
+      "id": "e80095fd-bfb1-428f-b85d-380387923cf2",
+      "name": "Read full email"
+    },
+    {
+      "parameters": {
+        "jsCode": "let raw = $json.output || $json.text || \"\";\n\nraw = raw.replace(/```json/g,\"\")\n         .replace(/```/g,\"\")\n         .trim();\n\nlet parsed;\n\ntry {\n  parsed = JSON.parse(raw);\n} catch {\n  parsed = { labels: [\"CATEGORY_UPDATES\"] };\n}\n\nreturn [{\n  json: {\n    labels: parsed.labels\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [416, 640],
+      "id": "ba12122f-391c-4a28-ab87-6b8c079a46e1",
+      "name": "Parse AI Response"
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $('Gmail Trigger').item.json.threadId }}",
+        "labelIds": "={{ $json.labels }}"
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [624, 640],
+      "id": "aaff4e6d-44c0-46ff-966b-15243b5fe99e",
+      "name": "Apply Gmail Labels"
+    }
+  ],
+  "connections": {
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "Read full email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read full email": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Response": {
+      "main": [
+        [
+          {
+            "node": "Apply Gmail Labels",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}
