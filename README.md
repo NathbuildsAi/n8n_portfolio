@@ -1,54 +1,111 @@
-🤖 AI Gmail Auto-Reply Agent (n8n)
+🤖 AI Gmail Email Classifier (n8n + Gemini)
 
-An AI-powered Gmail automation workflow built with n8n that reads incoming emails, detects important senders, and automatically generates professional replies using Google Gemini AI.
+An AI-powered Gmail automation workflow built with n8n that reads incoming emails, analyzes them using Google Gemini AI, and automatically classifies them into Gmail categories.
 
-This project demonstrates how to build a simple AI email assistant for personal or business automation.
+The workflow uses AI to understand the sender, subject, and message content, then applies the correct Gmail label while generating structured metadata such as priority, type, and confidence score.
+
+This project demonstrates how to build an AI-powered inbox organization system using workflow automation.
 
 🚀 Features
 
-✅ Monitor Gmail for new emails
+✅ Monitor Gmail for new unread emails
 
-⭐ Detect important senders (VIP list)
+🧠 Analyze emails using Google Gemini AI
 
-🤖 Generate replies using Google Gemini AI
+🏷 Automatically apply Gmail category labels
 
-📤 Automatically send email responses
+⚡ Detect email priority level
 
-📬 Organize inbox by marking or archiving threads
+📬 Classify email type (lead, update, social, promotion, etc.)
+
+📊 Generate confidence score for the AI classification
+
+🛡 Safe JSON parsing to prevent workflow errors
 
 ⚙️ How It Works
+1️⃣ Gmail Trigger
 
-Gmail Trigger watches your inbox for unread emails.
+The workflow monitors Gmail for new unread emails.
 
-The workflow checks if the sender is in your VIP sender list.
+2️⃣ Read Full Email
 
-If the sender is important
+The full email thread is retrieved so the AI can analyze:
 
-⭐ The email is starred
+Sender
 
-📥 The message content is extracted
+Subject
 
-🤖 AI generates a professional reply
+Email body
 
-📤 The reply is automatically sent
+3️⃣ AI Email Classification
 
-If the sender is not important
+Google Gemini AI analyzes the email and determines:
 
-The email is marked as read
+Gmail label
+
+Email priority
+
+Email type
+
+AI confidence score
+
+Supported Gmail labels:
+
+CATEGORY_PERSONAL
+
+CATEGORY_SOCIAL
+
+CATEGORY_PROMOTIONS
+
+CATEGORY_UPDATES
+
+CATEGORY_FORUMS
+
+SPAM
+
+4️⃣ JSON Response Parsing
+
+The AI returns structured JSON which is safely parsed by a JavaScript node to prevent automation failures.
+
+5️⃣ Apply Gmail Labels
+
+The workflow automatically applies the returned Gmail label to the email.
+
+Your inbox becomes automatically organized.
 
 🧠 AI Response Format
 
-The AI agent generates structured output:
+The AI agent returns structured JSON:
 
-SUBJECT: Reply subject
+{
+ "labels": ["CATEGORY_UPDATES"],
+ "priority": "medium",
+ "type": "update",
+ "confidence": 0.92
+}
+Field Definitions
 
-EMAIL BODY:
-Full reply message
+labels
+Gmail category applied to the email.
 
-ACTION:
-Reply / Ask for clarification / No response needed
+priority
 
-The workflow parses this output and sends the response through Gmail.
+low → newsletters, promotions, automated notifications
+medium → normal communication
+high → urgent or time-sensitive emails
+
+type
+
+lead → business inquiry
+update → receipt or confirmation
+social → social media notification
+promotion → marketing email
+personal → message from a real person
+spam → suspicious or irrelevant message
+
+confidence
+
+A value between 0 and 1 representing how confident the AI is in the classification.
 
 🛠 Requirements
 
@@ -77,18 +134,18 @@ Create an API key:
 
 https://aistudio.google.com/app/apikey
 
-Add it to the Google Gemini node in n8n.
+Add the key to the Google Gemini Chat Model node in the workflow.
 
-4️⃣ Configure Important Senders
+4️⃣ Create Gmail Labels
 
-Edit the Important Senders Config node:
+Ensure the following labels exist in your Gmail account:
 
-const importantSenders = [
-  "vip@example.com",
-  "client@example.com"
-];
-
-Replace with your real email addresses.
+CATEGORY_PERSONAL
+CATEGORY_SOCIAL
+CATEGORY_PROMOTIONS
+CATEGORY_UPDATES
+CATEGORY_FORUMS
+SPAM
 
 📂 Import the Workflow
 
@@ -100,27 +157,31 @@ Click Import
 
 Paste the workflow JSON
 
+Save and activate the workflow
+
 💡 Example Use Cases
 
-Personal AI email assistant
+📥 Automatic inbox organization
 
-Customer auto-reply system
+🤖 AI-powered email classification
 
-Client communication automation
+📬 Smart Gmail labeling system
 
-Inbox productivity workflow
+⚡ Productivity automation for email workflows
+
+🧠 AI inbox intelligence
 
 🔒 Notes
 
-Avoid auto-replying to:
+To avoid incorrect labeling, consider adding additional filters for:
 
-newsletters
+sensitive emails
 
-marketing emails
+financial notifications
 
 unknown senders
 
-Consider adding filters or labels for better control.
+You can also extend the workflow with manual review steps for low-confidence classifications.
 
 📜 License
 
@@ -128,12 +189,20 @@ MIT License
 
 💡 Inspiration
 
-This project can serve as a foundation for building:
+This project demonstrates how AI can be used to build:
 
 AI email assistants
 
-business workflow automation
+AI inbox organization systems
 
-AI productivity systems
+automation workflows with machine learning
+
+It can also serve as a foundation for building:
+
+AI lead detection systems
+
+AI CRM automations
+
+AI customer support workflows
 
 Feel free to copy the workflow and adapt it for your own automation projects.
