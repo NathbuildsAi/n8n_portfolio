@@ -1,35 +1,40 @@
 🤖 AI Gmail Email Classifier (n8n + Gemini)
 
-An AI-powered Gmail automation workflow built with n8n that reads incoming emails, analyzes them using Google Gemini AI, and automatically classifies them into Gmail categories.
+An AI-powered Gmail automation workflow built with n8n that reads incoming emails, analyzes their content using Google Gemini AI, and automatically categorizes them with Gmail labels.
 
-The workflow uses AI to understand the sender, subject, and message content, then applies the correct Gmail label while generating structured metadata such as priority, type, and confidence score.
-
-This project demonstrates how to build an AI-powered inbox organization system using workflow automation.
+This project demonstrates how to build an AI-powered inbox classification system using workflow automation and large language models.
 
 🚀 Features
 
 ✅ Monitor Gmail for new unread emails
+📥 Extract email sender, subject, and message body
+🤖 Classify emails using Google Gemini AI
+🏷 Automatically apply Gmail labels
+📊 Generate structured AI output including:
 
-🧠 Analyze emails using Google Gemini AI
+Label classification
 
-🏷 Automatically apply Gmail category labels
+Priority level
 
-⚡ Detect email priority level
+Email type
 
-📬 Classify email type (lead, update, social, promotion, etc.)
-
-📊 Generate confidence score for the AI classification
-
-🛡 Safe JSON parsing to prevent workflow errors
+AI confidence score
 
 ⚙️ How It Works
+
+The workflow processes emails in the following steps:
+
 1️⃣ Gmail Trigger
 
-The workflow monitors Gmail for new unread emails.
+The workflow watches your inbox for new unread emails.
 
-2️⃣ Read Full Email
+2️⃣ Read Email Thread
 
-The full email thread is retrieved so the AI can analyze:
+The Gmail node retrieves the full email thread data.
+
+3️⃣ Extract Email Content
+
+A JavaScript node extracts:
 
 Sender
 
@@ -37,19 +42,47 @@ Subject
 
 Email body
 
-3️⃣ AI Email Classification
+The body is decoded from Gmail's Base64 format.
 
-Google Gemini AI analyzes the email and determines:
+4️⃣ AI Email Classifier
 
-Gmail label
+The extracted email content is sent to Google Gemini AI, which analyzes the message and returns structured classification data.
 
-Email priority
+Example AI output:
 
-Email type
+{
+  "labels": ["CATEGORY_UPDATES"],
+  "priority": "medium",
+  "type": "update",
+  "confidence": 0.92
+}
+5️⃣ Parse AI Output
 
-AI confidence score
+The workflow safely parses the AI response and ensures valid JSON output.
 
-Supported Gmail labels:
+If parsing fails, a default classification is applied.
+
+6️⃣ Apply Gmail Label
+
+The selected label is automatically added to the email inside Gmail.
+
+🧠 AI Classification Format
+
+The AI agent returns structured JSON:
+
+{
+  "labels": [],
+  "priority": "low | medium | high",
+  "type": "lead | update | social | promotion | personal | spam",
+  "confidence": 0.0
+}
+Fields Explained
+
+labels
+
+Gmail labels applied to the email.
+
+Available labels:
 
 CATEGORY_PERSONAL
 
@@ -63,55 +96,43 @@ CATEGORY_FORUMS
 
 SPAM
 
-4️⃣ JSON Response Parsing
-
-The AI returns structured JSON which is safely parsed by a JavaScript node to prevent automation failures.
-
-5️⃣ Apply Gmail Labels
-
-The workflow automatically applies the returned Gmail label to the email.
-
-Your inbox becomes automatically organized.
-
-🧠 AI Response Format
-
-The AI agent returns structured JSON:
-
-{
- "labels": ["CATEGORY_UPDATES"],
- "priority": "medium",
- "type": "update",
- "confidence": 0.92
-}
-Field Definitions
-
-labels
-Gmail category applied to the email.
-
 priority
 
-low → newsletters, promotions, automated notifications
-medium → normal communication
-high → urgent or time-sensitive emails
+Indicates how important the email is.
+
+Level	Meaning
+low	newsletters, promotions, automated messages
+medium	normal emails
+high	urgent or time-sensitive emails
 
 type
 
-lead → business inquiry
-update → receipt or confirmation
-social → social media notification
-promotion → marketing email
-personal → message from a real person
-spam → suspicious or irrelevant message
+The general email category.
+
+Type	Example
+lead	business inquiry
+update	receipts or confirmations
+social	social network notifications
+promotion	marketing emails
+personal	messages from real people
+spam	suspicious or irrelevant emails
 
 confidence
 
-A value between 0 and 1 representing how confident the AI is in the classification.
+AI confidence score between 0 and 1.
 
+Range	Meaning
+0.9 – 1.0	very confident
+0.7 – 0.89	fairly confident
+0.5 – 0.69	uncertain
+below 0.5	low confidence
 🛠 Requirements
+
+To run this workflow you need:
 
 n8n
 
-Gmail API credentials
+Gmail OAuth credentials
 
 Google Gemini API key
 
@@ -126,7 +147,11 @@ docker run -it --rm \
 n8nio/n8n
 2️⃣ Connect Gmail
 
-Create Gmail OAuth credentials and connect them inside n8n.
+Create Gmail OAuth credentials and connect them in n8n.
+
+Google Cloud Console:
+
+https://console.cloud.google.com/
 
 3️⃣ Add Gemini API
 
@@ -134,20 +159,9 @@ Create an API key:
 
 https://aistudio.google.com/app/apikey
 
-Add the key to the Google Gemini Chat Model node in the workflow.
+Add the key to the Google Gemini node in n8n.
 
-4️⃣ Create Gmail Labels
-
-Ensure the following labels exist in your Gmail account:
-
-CATEGORY_PERSONAL
-CATEGORY_SOCIAL
-CATEGORY_PROMOTIONS
-CATEGORY_UPDATES
-CATEGORY_FORUMS
-SPAM
-
-📂 Import the Workflow
+4️⃣ Import the Workflow
 
 Open n8n
 
@@ -157,31 +171,39 @@ Click Import
 
 Paste the workflow JSON
 
-Save and activate the workflow
-
 💡 Example Use Cases
 
-📥 Automatic inbox organization
+This automation can be used for:
 
-🤖 AI-powered email classification
+📬 AI inbox organization
+📊 Email prioritization systems
+📈 Business lead detection
+🤖 AI productivity tools
+⚙️ Gmail workflow automation
 
-📬 Smart Gmail labeling system
-
-⚡ Productivity automation for email workflows
-
-🧠 AI inbox intelligence
-
+📂 Project Architecture
+Gmail Trigger
+      ↓
+Read Email Thread
+      ↓
+Extract Email Content
+      ↓
+AI Email Classifier (Gemini)
+      ↓
+Parse AI Output
+      ↓
+Apply Gmail Label
 🔒 Notes
 
-To avoid incorrect labeling, consider adding additional filters for:
+Avoid automatically labeling:
+
+system alerts
 
 sensitive emails
 
 financial notifications
 
-unknown senders
-
-You can also extend the workflow with manual review steps for low-confidence classifications.
+Additional filters can be added to improve classification accuracy.
 
 📜 License
 
@@ -189,20 +211,23 @@ MIT License
 
 💡 Inspiration
 
-This project demonstrates how AI can be used to build:
+This project demonstrates how AI and workflow automation can be combined to build:
 
 AI email assistants
 
-AI inbox organization systems
+automated inbox management
 
-automation workflows with machine learning
+business workflow automation
 
-It can also serve as a foundation for building:
+AI productivity systems
 
-AI lead detection systems
+You can expand this project by adding:
 
-AI CRM automations
+auto-reply agents
 
-AI customer support workflows
+lead detection
 
-Feel free to copy the workflow and adapt it for your own automation projects.
+CRM integrations
+
+Slack or Notion notifications.
+You can copy and paste this workflow.
