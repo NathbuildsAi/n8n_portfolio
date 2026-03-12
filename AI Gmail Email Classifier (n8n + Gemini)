@@ -14,32 +14,38 @@
         }
       },
       "type": "n8n-nodes-base.gmailTrigger",
-      "typeVersion": 1.3,
-      "position": [-380, 600],
-      "id": "gmail-trigger",
+      "typeVersion": 1,
+      "position": [-400, 500],
       "name": "Gmail Trigger"
     },
     {
       "parameters": {
         "resource": "thread",
         "operation": "get",
-        "threadId": "={{ $node[\"Gmail Trigger\"].json[\"threadId\"] }}"
+        "threadId": "={{ $node['Gmail Trigger'].json['id'] }}"
       },
       "type": "n8n-nodes-base.gmail",
-      "typeVersion": 2.2,
-      "position": [-120, 600],
-      "id": "read-email",
-      "name": "Read Full Email"
+      "typeVersion": 2,
+      "position": [-160, 500],
+      "name": "Read Email Thread"
+    },
+    {
+      "parameters": {
+        "jsCode": "const message = $json.messages?.[0];\n\nif (!message) {\n  return [{ json: { From: '', Subject: '', Body: '' } }];\n}\n\nconst headers = message.payload?.headers || [];\n\nconst from = headers.find(h => h.name === 'From')?.value || '';\nconst subject = headers.find(h => h.name === 'Subject')?.value || '';\n\nlet bodyData = message.payload?.body?.data;\n\nif (!bodyData && message.payload?.parts) {\n  const part = message.payload.parts.find(p => p.mimeType === 'text/plain');\n  bodyData = part?.body?.data;\n}\n\nconst decodedBody = bodyData\n  ? Buffer.from(bodyData, 'base64').toString('utf8')\n  : '';\n\nreturn [{\n  json: {\n    From: from,\n    Subject: subject,\n    Body: decodedBody\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [80, 500],
+      "name": "Extract Email Content"
     },
     {
       "parameters": {
         "promptType": "define",
-        "text": "=You are an AI assistant that categorizes Gmail emails for automatic labeling.\n\nAnalyze the email and determine the correct Gmail label.\n\nSubject: {{ $json.Subject }}\nFrom: {{ $json.From }}\nBody: {{ $json.messages[0].snippet }}\n\nReturn ONLY valid JSON.\n\nStructure:\n\n{\n\"labels\": [],\n\"priority\": \"low | medium | high\",\n\"type\": \"lead | update | social | promotion | personal | spam\",\n\"confidence\": 0.0\n}\n\nLabels must be one of:\nCATEGORY_PERSONAL\nCATEGORY_SOCIAL\nCATEGORY_PROMOTIONS\nCATEGORY_UPDATES\nCATEGORY_FORUMS\nSPAM\n\nRules:\nReturn ONLY JSON\nNo markdown\nNo explanation\nAlways return at least one label"
+        "text": "## OUTPUT FORMAT\n\nReturn ONLY valid JSON.\n\nStructure:\n\n{\n\"labels\": [],\n\"priority\": \"low | medium | high\",\n\"type\": \"lead | update | social | promotion | personal | spam\",\n\"confidence\": 0.0\n}\n\nLabels must only be chosen from the following list:\n\nCATEGORY_PERSONAL\nCATEGORY_SOCIAL\nCATEGORY_PROMOTIONS\nCATEGORY_UPDATES\nCATEGORY_FORUMS\nSPAM\n\nDefinitions:\n\npriority\nlow → newsletters, promotions, automated notifications\nmedium → normal emails that may need attention\nhigh → urgent or time-sensitive messages\n\nconfidence\nA number between 0 and 1 representing classification confidence.\n\nRules:\n\nReturn ONLY JSON.\nDo not include explanations.\nAlways return at least one label.\n\nEmail:\n\nFrom: {{ $json.From }}\nSubject: {{ $json.Subject }}\nBody: {{ $json.Body }}"
       },
       "type": "@n8n/n8n-nodes-langchain.agent",
-      "typeVersion": 3.1,
-      "position": [140, 600],
-      "id": "ai-classifier",
+      "typeVersion": 3,
+      "position": [320, 500],
       "name": "AI Email Classifier"
     },
     {
@@ -48,91 +54,48 @@
       },
       "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
       "typeVersion": 1,
-      "position": [140, 820],
-      "id": "gemini-model",
-      "name": "Gemini AI Model"
+      "position": [320, 720],
+      "name": "Gemini Model"
     },
     {
       "parameters": {
-        "jsCode": "let raw = $json.output || $json.text || \"\";\n\nraw = raw.replace(/```json/g,\"\")\n.replace(/```/g,\"\")\n.trim();\n\nlet parsed;\n\ntry {\nparsed = JSON.parse(raw);\n} catch {\nparsed = {\nlabels: [\"CATEGORY_UPDATES\"],\npriority: \"low\",\ntype: \"update\",\nconfidence: 0.5\n};\n}\n\nreturn [{\njson: {\nlabels: parsed.labels || [\"CATEGORY_UPDATES\"],\npriority: parsed.priority || \"low\",\ntype: parsed.type || \"update\",\nconfidence: parsed.confidence || 0.5\n}\n}];"
+        "jsCode": "let raw = $json.output || $json.text || '';\n\nraw = raw\n.replace(/```json/g, '')\n.replace(/```/g, '')\n.trim();\n\nlet parsed;\n\ntry {\n  parsed = JSON.parse(raw);\n} catch {\n  parsed = {\n    labels: ['CATEGORY_UPDATES'],\n    priority: 'low',\n    type: 'update',\n    confidence: 0.5\n  };\n}\n\nreturn [{\n  json: {\n    labels: parsed.labels || ['CATEGORY_UPDATES'],\n    priority: parsed.priority || 'low',\n    type: parsed.type || 'update',\n    confidence: parsed.confidence || 0.5\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [420, 600],
-      "id": "parse-ai",
-      "name": "Parse AI Response"
+      "position": [560, 500],
+      "name": "Parse AI Output"
     },
     {
       "parameters": {
         "operation": "addLabels",
-        "messageId": "={{ $('Gmail Trigger').item.json.threadId }}",
+        "messageId": "={{ $node['Gmail Trigger'].json['id'] }}",
         "labelIds": "={{ $json.labels }}"
       },
       "type": "n8n-nodes-base.gmail",
-      "typeVersion": 2.2,
-      "position": [650, 600],
-      "id": "apply-label",
-      "name": "Apply Gmail Labels"
+      "typeVersion": 2,
+      "position": [800, 500],
+      "name": "Apply Gmail Label"
     }
   ],
   "connections": {
     "Gmail Trigger": {
-      "main": [
-        [
-          {
-            "node": "Read Full Email",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Read Email Thread", "type": "main", "index": 0 }]]
     },
-    "Read Full Email": {
-      "main": [
-        [
-          {
-            "node": "AI Email Classifier",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "Read Email Thread": {
+      "main": [[{ "node": "Extract Email Content", "type": "main", "index": 0 }]]
     },
-    "Gemini AI Model": {
-      "ai_languageModel": [
-        [
-          {
-            "node": "AI Email Classifier",
-            "type": "ai_languageModel",
-            "index": 0
-          }
-        ]
-      ]
+    "Extract Email Content": {
+      "main": [[{ "node": "AI Email Classifier", "type": "main", "index": 0 }]]
+    },
+    "Gemini Model": {
+      "ai_languageModel": [[{ "node": "AI Email Classifier", "type": "ai_languageModel", "index": 0 }]]
     },
     "AI Email Classifier": {
-      "main": [
-        [
-          {
-            "node": "Parse AI Response",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Parse AI Output", "type": "main", "index": 0 }]]
     },
-    "Parse AI Response": {
-      "main": [
-        [
-          {
-            "node": "Apply Gmail Labels",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "Parse AI Output": {
+      "main": [[{ "node": "Apply Gmail Label", "type": "main", "index": 0 }]]
     }
-  },
-  "meta": {
-    "templateCredsSetupCompleted": true
   }
 }
