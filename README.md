@@ -230,4 +230,6 @@ lead detection
 CRM integrations
 
 Slack or Notion notifications.
-You can copy and paste this workflow.
+
+
+⭐ Feel free to fork the workflow and adapt it for your own AI automation projects.
