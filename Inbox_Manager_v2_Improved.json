@@ -1,0 +1,628 @@
+{
+  "name": "Automated Intelligent Inbox Manager v2 (Improved)",
+  "description": "Email classification & routing: Gmail Trigger → AI Classification → Safety Layer → Action Router → All paths log to Google Sheets",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyX",
+              "value": 5,
+              "unit": "minutes"
+            }
+          ]
+        },
+        "filters": {
+          "readStatus": "unread"
+        }
+      },
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.3,
+      "position": [0, -336],
+      "id": "gmail-trigger",
+      "name": "Gmail Trigger"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [240, -80],
+      "id": "gemini-model",
+      "name": "Gemini Model"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an email classification agent. Retrieve the FULL email and classify it deterministically.\n\nINPUT:\nMessage ID: {{$json.id}}\nSnippet: {{$json.snippet}}\n\nYou have access to a Gmail tool. ALWAYS:\n1. Call the Gmail tool with the Message ID\n2. Wait for the full email content\n3. Analyze the FULL content (ignore snippet)\n4. Return ONLY this JSON:\n\n{\n  \"sender\": \"email@address.com\",\n  \"subject\": \"Original subject\",\n  \"body\": \"Full email body\",\n  \"category\": \"Support|Financial|Personal|Sales|Legal|HR|Scam|Spam|Low_Priority|Other\",\n  \"risk\": \"Low|Medium|High\",\n  \"priority\": \"Low|Medium|High\",\n  \"action\": \"auto_send|draft|notify|ignore\",\n  \"reasoning\": \"One sentence explanation\"\n}\n\nCLASSIFICATION RULES:\n- Scam = malicious/fraudulent\n- Spam = unsolicited bulk emails (not malicious)\n- Low_Priority = informational, notifications\n- Support = help requests, bugs\n- Financial = invoices, payments\n- Legal = contracts, disputes\n\nACTION RULES:\n- auto_send: Safe support replies only (very rare)\n- draft: Medium risk, needs human review\n- notify: High risk or sensitive\n- ignore: Low priority or spam\n\nRISK RULES:\n- Low: Safe to auto-reply\n- Medium: Needs human review\n- High: Financial, legal, sensitive, malicious\n\nAlways output VALID JSON only. No markdown, no backticks, no explanations.",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [224, -336],
+      "id": "classification-agent",
+      "name": "Email Classification Agent"
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Use this tool to retrieve the FULL email content from Gmail. The initial input may only contain a snippet.\n\nAlways call this BEFORE classifying. Use the Message ID from input.",
+        "operation": "get",
+        "messageId": "={{$json.id}}"
+      },
+      "type": "n8n-nodes-base.gmailTool",
+      "typeVersion": 2.2,
+      "position": [368, -112],
+      "id": "read-gmail-tool",
+      "name": "Read Full Email (Tool)"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Safely parse AI output as JSON\ntry {\n  const output = $json.output;\n  // Remove markdown code blocks if present\n  const cleaned = output\n    .replace(/```json/g, '')\n    .replace(/```/g, '')\n    .trim();\n  \n  const parsed = JSON.parse(cleaned);\n  return [{ json: parsed }];\n} catch (error) {\n  // Fallback for parse errors\n  return [{\n    json: {\n      sender: \"unknown\",\n      subject: \"Parse Error\",\n      body: \"\",\n      category: \"Other\",\n      risk: \"High\",\n      priority: \"High\",\n      action: \"notify\",\n      reasoning: \"Failed to parse AI classification output\"\n    }\n  }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [576, -336],
+      "id": "parse-json",
+      "name": "Parse AI JSON Output"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.risk === 'High' }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [800, -336],
+      "id": "safety-layer",
+      "name": "Safety Layer: Force High Risk → Notify"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Force action to 'notify' if risk is High\nif ($json.risk === 'High') {\n  $json.action = 'notify';\n}\nreturn [$json];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1024, -432],
+      "id": "force-notify",
+      "name": "Force Action: notify"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pass through normal flow\nreturn [$json];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1024, -240],
+      "id": "normal-flow",
+      "name": "Normal Flow (Keep Action)"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{$json.action}}",
+                    "rightValue": "auto_send",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "route-auto-send"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "auto_send"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{$json.action}}",
+                    "rightValue": "draft",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "route-draft"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "draft"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{$json.action}}",
+                    "rightValue": "notify",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "route-notify"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "notify"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{$json.action}}",
+                    "rightValue": "ignore",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "route-ignore"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "ignore"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [1248, -336],
+      "id": "action-router",
+      "name": "Route by Action"
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "reply",
+        "messageId": "={{$node['Gmail Trigger'].json.id}}",
+        "message": "=Based on AI analysis, sending auto-reply.",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [1472, -480],
+      "id": "send-auto-reply",
+      "name": "AUTO_SEND: Send Reply"
+    },
+    {
+      "parameters": {
+        "resource": "draft",
+        "operation": "create",
+        "to": "={{$json.sender}}",
+        "subject": "=Re: {{$json.subject}}",
+        "message": "=[Draft] Based on AI analysis, needs human review before sending.",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [1472, -336],
+      "id": "create-draft",
+      "name": "DRAFT: Create Gmail Draft"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Generate an alert email for the inbox owner about a classified email.\n\nDATA:\nSender: {{$json.sender}}\nSubject: {{$json.subject}}\nBody: {{$json.body}}\nCategory: {{$json.category}}\nRisk: {{$json.risk}}\nPriority: {{$json.priority}}\nReasoning: {{$json.reasoning}}\n\nGenerate a professional alert email. Output ONLY valid JSON:\n\n{\n  \"alertSubject\": \"⚠️ Alert: High-Risk Email\",\n  \"alertBody\": \"An incoming email requires your attention...\\n\\nFrom: SENDER\\nSubject: SUBJECT\\n\\nCategory: CATEGORY | Risk: RISK\\n\\nAnalysis: REASONING\"\n}\n\nNO markdown. NO backticks. VALID JSON only.",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [1472, -192],
+      "id": "generate-alert",
+      "name": "NOTIFY: Generate Alert Email"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-flash-lite",
+        "options": {
+          "temperature": 0,
+          "topP": 0.1
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [1552, -80],
+      "id": "gemini-alert",
+      "name": "Gemini Alert Model"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse alert email JSON\ntry {\n  const output = $json.output;\n  const cleaned = output.replace(/```json/g, '').replace(/```/g, '').trim();\n  const parsed = JSON.parse(cleaned);\n  return [{ json: parsed }];\n} catch (error) {\n  return [{\n    json: {\n      alertSubject: \"⚠️ System Alert\",\n      alertBody: \"An email requires manual review. Check the workflow logs.\"\n    }\n  }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1696, -192],
+      "id": "parse-alert",
+      "name": "Parse Alert JSON"
+    },
+    {
+      "parameters": {
+        "sendTo": "=yourname@gmail.com",
+        "subject": "={{$json.alertSubject}}",
+        "message": "={{$json.alertBody}}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [1920, -192],
+      "id": "send-alert",
+      "name": "Send Alert to Owner"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1472, -48],
+      "id": "ignore-noop",
+      "name": "IGNORE: Do Nothing"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [1680, -336],
+      "id": "merge-all-paths",
+      "name": "Merge All Paths"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "value": "1gAL_dQmqAgE0S2Ztz26B0_yIiDtr8dCq-baj0cUGIws",
+          "mode": "list"
+        },
+        "sheetName": {
+          "value": "gid=0",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Timestamp": "={{new Date().toISOString()}}",
+            "Sender": "={{$json.sender}}",
+            "Subject": "={{$json.subject}}",
+            "Category": "={{$json.category}}",
+            "Risk": "={{$json.risk}}",
+            "Priority": "={{$json.priority}}",
+            "Action": "={{$json.action}}",
+            "Reasoning": "={{$json.reasoning}}"
+          },
+          "matchingColumns": ["Sender"],
+          "schema": [
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "id": "Sender",
+              "displayName": "Sender",
+              "required": false,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Subject",
+              "displayName": "Subject",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "id": "Category",
+              "displayName": "Category",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "id": "Risk",
+              "displayName": "Risk",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "id": "Priority",
+              "displayName": "Priority",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "id": "Action",
+              "displayName": "Action",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "id": "Reasoning",
+              "displayName": "Reasoning",
+              "required": false,
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [1904, -336],
+      "id": "log-to-sheets",
+      "name": "Log to Google Sheets"
+    }
+  ],
+  "connections": {
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "Email Classification Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Email Classification Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Full Email (Tool)": {
+      "ai_tool": [
+        [
+          {
+            "node": "Email Classification Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Classification Agent": {
+      "main": [
+        [
+          {
+            "node": "Parse AI JSON Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI JSON Output": {
+      "main": [
+        [
+          {
+            "node": "Safety Layer: Force High Risk → Notify",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Safety Layer: Force High Risk → Notify": {
+      "main": [
+        [
+          {
+            "node": "Force Action: notify",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Normal Flow (Keep Action)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Force Action: notify": {
+      "main": [
+        [
+          {
+            "node": "Route by Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normal Flow (Keep Action)": {
+      "main": [
+        [
+          {
+            "node": "Route by Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Action": {
+      "main": [
+        [
+          {
+            "node": "AUTO_SEND: Send Reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "DRAFT: Create Gmail Draft",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NOTIFY: Generate Alert Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IGNORE: Do Nothing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AUTO_SEND: Send Reply": {
+      "main": [
+        [
+          {
+            "node": "Merge All Paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DRAFT: Create Gmail Draft": {
+      "main": [
+        [
+          {
+            "node": "Merge All Paths",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "NOTIFY: Generate Alert Email": {
+      "main": [
+        [
+          {
+            "node": "Parse Alert JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Alert Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "NOTIFY: Generate Alert Email",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Alert JSON": {
+      "main": [
+        [
+          {
+            "node": "Send Alert to Owner",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Alert to Owner": {
+      "main": [
+        [
+          {
+            "node": "Merge All Paths",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "IGNORE: Do Nothing": {
+      "main": [
+        [
+          {
+            "node": "Merge All Paths",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Merge All Paths": {
+      "main": [
+        [
+          {
+            "node": "Log to Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": [
+    { "name": "Email Automation" },
+    { "name": "AI Classification" },
+    { "name": "Gemini" },
+    { "name": "Gmail" }
+  ]
+}
